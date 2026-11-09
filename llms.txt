@@ -1,0 +1,16 @@
+# smtp-mail-catcher
+
+> Development SMTP server that captures every message, parses MIME parts and attachments and shows them in a safe local web interface Go module `github.com/Trysac/u920-smtp-mail-catcher`, package `smtpmailcatcher`, MIT licensed,
+> Go >= 1.23, standard library only.
+
+## Docs
+
+- [README](README.md): problem, install, usage example
+- [AGENTS](AGENTS.md): commands, folder map, conventions, limits
+- [Architecture](docs/ARCHITECTURE.md): shape of the package and its public API
+- [Testing](docs/TESTING.md): how to run and extend the tests
+
+## Optional
+
+- [Stack](docs/STACK.md): tools used and discarded
+- [Changelog](CHANGELOG.md): release history
