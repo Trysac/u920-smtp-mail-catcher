@@ -1,55 +1,37 @@
 # smtp-mail-catcher
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/Trysac/u920-smtp-mail-catcher.svg)](https://pkg.go.dev/github.com/Trysac/u920-smtp-mail-catcher)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/Trysac/u920-smtp-mail-catcher/actions/workflows/ci.yml/badge.svg)](https://github.com/Trysac/u920-smtp-mail-catcher/actions/workflows/ci.yml)
 
-Development SMTP server that captures every message, parses MIME parts and attachments and shows them in a safe local web interface
+Applications under development often send real e-mail by accident, or developers cannot see what a password reset or invoice message looks like without a real mailbox. This package provides an in-memory SMTP server that never relays, stores a bounded number of messages, decodes multipart MIME, and serves them through a JSON API and an HTML view that cannot run captured scripts.
 
-## Problem
+## Installation
 
-Describe in two or three sentences the concrete problem this utility solves, who hits it, and what
-they do today without it. Replace this paragraph when the first real feature lands.
-
-## Install
-
-```sh
+```bash
 go get github.com/Trysac/u920-smtp-mail-catcher
 ```
 
-Requires Go 1.23 or newer. No dependencies outside the standard library.
-
-## Usage
+## Usage Example
 
 ```go
-package main
-
-import (
-	"errors"
-	"fmt"
-
-	"github.com/Trysac/u920-smtp-mail-catcher"
-)
-
-func main() {
-	// Normalize trims surrounding whitespace and lower-cases the text.
-	out, _ := smtpmailcatcher.Normalize("  Hello World ")
-	fmt.Println(out) // -> "hello world"
-
-	// Blank input is rejected explicitly instead of returning an empty string.
-	if _, err := smtpmailcatcher.Normalize("   "); errors.Is(err, smtpmailcatcher.ErrBlank) {
-		fmt.Println("rejected:", err)
-	}
-}
+srv := smtpmailcatcher.NewServer(smtpmailcatcher.Config{})
+l, _ := net.Listen("tcp", "127.0.0.1:1025")
+go srv.Serve(l)
+http.ListenAndServe("127.0.0.1:1080", srv.HTTPHandler())
 ```
 
-## Documentation
+## Public API Summary
 
-- [Architecture](docs/ARCHITECTURE.md) and [decisions](docs/decisions/)
-- [Testing](docs/TESTING.md) and [security](docs/SECURITY.md)
-- [Project record](docs/PROJECT.md) and [stack](docs/STACK.md)
-- [Changelog](CHANGELOG.md) and [contributing guide](CONTRIBUTING.md)
+- `NewServer(cfg Config) *Server`: Creates the server instance.
+- `Serve(l net.Listener) error`: Starts the SMTP loop.
+- `HTTPHandler() http.Handler`: Returns the inspector UI and API handler.
+- `Messages() []Message`: Returns a copy of the message store (newest first).
+- `Config`: Controls limits (`MaxMessages`, `MaxMessageBytes`, `MaxRecipients`, `CommandTimeout`).
+- `Error`: Returned by the API with code `not_found` when accessing invalid message IDs.
 
-## License
+## Why not MailHog or Mailpit?
 
-[MIT](LICENSE) (c) 2026 Miguel Gomez
+This utility is an embeddable Go package with a bounded store that is usable directly from integration tests, whereas external tools require running separate infrastructure processes.
+
+## Security
+
+See [docs/SECURITY.md](docs/SECURITY.md) for the threat model and limits.
