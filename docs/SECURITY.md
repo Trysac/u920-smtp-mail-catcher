@@ -1,23 +1,28 @@
-# Security notes
+# Security Model
 
-## Threat model
+## Defended Threats
 
-`github.com/Trysac/u920-smtp-mail-catcher` is a pure library without I/O. The main risks are:
+1. **Script Execution via HTML Bodies**:
+   Captured emails are rendered in a sandboxed `<iframe>`. The `/messages/{id}/html` endpoint returns the body with `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox` and `X-Content-Type-Options: nosniff`.
 
-- **Supply chain**: a compromised dependency or CI action. Mitigation: standard library only,
-  `go.sum` verification, `govulncheck` in the local gates, Dependabot weekly updates, actions
-  pinned by commit SHA, minimal workflow permissions.
-- **Leaked secrets**: tokens committed by mistake. Mitigation: `gitleaks` runs in the local gates
-  and in CI; `.env` files are git-ignored.
-- **Insecure code**: disabled TLS verification, weak crypto, command injection. Mitigation: a
-  `security` gate (gosec, high severity fails, `#nosec` ignored); fix the code instead of silencing
-  it.
-- **Untrusted input**: callers may pass hostile strings. Mitigation: validate input and return
-  explicit errors; never use `unsafe` or `os/exec` with untrusted data.
+2. **Cross-Site Scripting (XSS)**:
+   The UI uses `html/template` for contextual escaping of subjects and metadata.
 
-## Publishing
+3. **Header Injection**:
+   Attachment filenames are sanitized to remove quotes and control characters.
 
-Releases are git tags served through the Go module proxy and checksum database. No registry token
-is stored in the repository.
+4. **Resource Exhaustion**:
+   Limits are enforced on:
+   - Message size (`MaxMessageBytes`, default 10 MiB).
+   - Recipient count (`MaxRecipients`, default 100).
+   - Command line length (1,000 bytes).
+   - MIME parsing (depth 10, 100 parts).
+   - Storage (FIFO eviction via `MaxMessages`).
 
-To report a vulnerability, see [SECURITY.md](../SECURITY.md).
+5. **Slowloris Attacks**:
+   Every command read enforces `CommandTimeout`.
+
+## Not Defended
+
+- **Authentication**: Not implemented; intended for local/CI use.
+- **Encryption**: TLS and STARTTLS are not implemented.

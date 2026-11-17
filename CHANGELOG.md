@@ -9,4 +9,5 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Add embeddable SMTP mail catcher with multipart MIME parsing and sandboxed HTTP viewer
 - Initial project structure from the factory utility template.

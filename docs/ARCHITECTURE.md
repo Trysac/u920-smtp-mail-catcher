@@ -1,30 +1,25 @@
 # Architecture
 
-## Purpose
+`smtp-mail-catcher` provides an in-memory SMTP receiver and HTTP inspection server designed for testing and development environments.
 
-`github.com/Trysac/u920-smtp-mail-catcher` is a small, dependency-free Go library: Development SMTP server that captures every message, parses MIME parts and attachments and shows them in a safe local web interface
+## Design Overview
 
-## Shape
+1. **SMTP Connection Lifecycle**:
+   - Connections are received by `Server.Serve(net.Listener)`.
+   - Each connection runs a handler with per-command `CommandTimeout` deadlines.
+   - The server implements a strict SMTP subset (RFC 5321) including EHLO (SIZE, 8BITMIME, PIPELINING), MAIL FROM, RCPT TO, DATA, RSET, NOOP, QUIT, and VRFY.
+   - Lines are enforced to 1000 octets including CRLF. DATA transparency (dot-stuffing) is applied per RFC 5321 section 4.5.2.
 
-```text
-caller code --> package smtpmailcatcher (repository root)
-                    |
-                    +-- pure functions, no I/O, no global mutable state
-                    +-- internal/ (optional private helpers)
-```
+2. **MIME Parser**:
+   - Uses standard library `net/mail`, `mime`, and `mime/multipart`.
+   - Encoded words in headers are decoded for UTF-8, US-ASCII, and ISO-8859-1.
+   - Multipart bodies are recursively parsed (depth limit 10, max 100 parts).
+   - Text parts are automatically identified; others are treated as attachments.
 
-- **Public API**: every exported identifier of the root package. Unexported identifiers and
-  `internal/` packages may change without a major version.
-- **Errors**: invalid input returns an error; exported sentinel errors (such as `ErrBlank`) let
-  callers branch with `errors.Is`. The library never panics on input, prints or exits.
-- **Side effects**: none. If a feature needs I/O, accept an interface (`io.Reader` or a small
-  custom one) instead of opening resources, and record the choice in an ADR.
+3. **In-Memory Store**:
+   - Bounded ring storage keeping `MaxMessages` (oldest evicted).
+   - Protected by `sync.RWMutex` for concurrent access.
 
-## Quality contract
-
-`scripts/check` is the single definition of the gates; `fabrica.json` tells the factory and CI
-how to run it. See [TESTING.md](TESTING.md).
-
-## Decisions
-
-Architecture decisions are recorded in [decisions/](decisions/) as numbered ADRs.
+4. **HTTP Interface**:
+   - REST API: `GET /api/messages`, `GET /api/messages/{id}`, `DELETE /api/messages`.
+   - Web Interface: Uses `html/template` to prevent XSS. HTML email bodies are rendered in a sandboxed `<iframe>` pointing to `/messages/{id}/html` which serves content with a strict CSP (`default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox`) and `X-Content-Type-Options: nosniff`.
